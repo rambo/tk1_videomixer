@@ -25,6 +25,20 @@ class Player(object):
     def __init__(self):
         self.mainloop = GObject.MainLoop()
         self._two_bins()
+        #self._two_pipelines()
+
+
+    def _add_logitech(self, bin):
+        src = Gst.ElementFactory.make('v4l2src', 'logitech')
+        src.set_property('device', '/dev/video0')
+        bin.add(src)
+
+        dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
+        bin.add(dec)
+
+        src.link(dec)
+        return dec
+
 
     def _two_bins(self):
         self.add_pipeline('main')
@@ -32,18 +46,9 @@ class Player(object):
         
         b1 = Gst.Bin.new('cam1')
         pl.add(b1)
-        src = Gst.ElementFactory.make('v4l2src', 'webcam')
-        src.set_property('device', '/dev/video0')
-        b1.add(src)
-        
-        dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
-        b1.add(dec)
-
-        src.link(dec)
-
+        dec = self._add_logitech(b1)
         gp1 = Gst.GhostPad.new('src', dec.get_static_pad('src'))
         b1.add_pad(gp1)
-
 
         b2 = Gst.Bin.new('out')
         pl.add(b2)
@@ -52,37 +57,24 @@ class Player(object):
         b2.add(out)
         gp2 = Gst.GhostPad.new('sink', out.get_static_pad('sink'))
         b2.add_pad(gp2)
-        
-        
-        b1.link(b2)
 
+        b1.link(b2)
 
 
     def _two_pipelines(self):
         self.add_pipeline('cam1')
         pl = self.pipelines['cam1']
-
-        src = Gst.ElementFactory.make('v4l2src', 'webcam')
-        src.set_property('device', '/dev/video0')
-        pl.add(src)
-        
-        dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
-        pl.add(dec)
+        dec = self._add_logitech(pl)
+        gp1 = Gst.GhostPad.new('src', dec.get_static_pad('src'))
+        pl.add_pad(gp1)
 
         self.add_pipeline('hdmiout')
         pl2 = self.pipelines['hdmiout']
-
         out = Gst.ElementFactory.make('nvhdmioverlaysink', 'output')
         out.set_property('sync', False)
         pl2.add(out)
-        ghost = Gst.GhostPad.new('sink', out.get_static_pad('sink'))
-        pl2.add_pad(ghost)
-
-        src.link(dec)
-        #dec.link(out)
-
-        ghost2 = Gst.GhostPad.new('src', dec.get_static_pad('src'))
-        pl.add_pad(ghost2)
+        gp2 = Gst.GhostPad.new('sink', out.get_static_pad('sink'))
+        pl2.add_pad(gp2)
 
         pl.link(pl2)
 
