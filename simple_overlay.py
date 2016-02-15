@@ -24,8 +24,71 @@ class Player(object):
 
     def __init__(self):
         self.mainloop = GObject.MainLoop()
-        self._two_bins()
         #self._two_pipelines()
+        #self._two_bins()
+        #self._overlaid()
+        self._overlaid('nveglglessink')
+
+    def _overlaid(self, sinkname='nvhdmioverlaysink'):
+        self.add_pipeline('main')
+        pl = self.pipelines['main']
+        
+        def make_b1():
+            b1 = Gst.Bin.new('cam1')
+            pl.add(b1)
+            dec1 = self._add_capture(b1)
+            gp1 = Gst.GhostPad.new('src', dec1.get_static_pad('src'))
+            b1.add_pad(gp1)
+            return b1
+        #b1 = make_b1()
+
+        def make_b1_boxed():
+            b1 = Gst.Bin.new('cam1')
+            pl.add(b1)
+            dec1 = self._add_capture(b1, 640, 480)
+
+            box_b1 = Gst.ElementFactory.make('videobox', 'box_b1')
+            box_b1.set_property('top', -50)
+            box_b1.set_property('left', -50)
+            box_b1.set_property('border-alpha', 0)
+            b1.add(box_b1)
+            dec1.link(box_b1)
+
+            gp1 = Gst.GhostPad.new('src', box_b1.get_static_pad('src'))
+            b1.add_pad(gp1)
+            return b1
+        b1 = make_b1_boxed()
+
+        def make_b2():
+            b2 = Gst.Bin.new('cam2')
+            pl.add(b2)
+            dec2 = self._add_logitech(b2, 640, 480)
+            box_b2 = Gst.ElementFactory.make('videobox', 'box_b2')
+            box_b2.set_property('top', -50)
+            box_b2.set_property('left', -50)
+            box_b2.set_property('border-alpha', 0)
+            b2.add(box_b2)
+            dec2.link(box_b2)
+            gp2 = Gst.GhostPad.new('src', box_b2.get_static_pad('src'))
+            b2.add_pad(gp2)
+            return b2
+        #b2 = make_b2()
+
+        mix = Gst.ElementFactory.make('videomixer', 'mix')
+        pl.add(mix)
+        #conv = Gst.ElementFactory.make('nvvidconv', None)
+        #pl.add(conv)
+        #mix.link(conv)
+
+        out = Gst.ElementFactory.make(sinkname, 'output')
+        out.set_property('sync', False)
+        pl.add(out)
+        #conv.link(out)
+        mix.link_filtered(out, Gst.caps_from_string('video/x-raw, width=(int)1920, height=(int)1080'))
+
+        b1.link(mix)
+        #b2.link(mix)
+
 
     def _add_capture(self, bin, w=1920, h=1080):
         src = Gst.ElementFactory.make('v4l2src', 'hdmicapture')
@@ -44,14 +107,14 @@ class Player(object):
         src.set_property('device', '/dev/video0')
         bin.add(src)
 
-        dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
+        dec = Gst.ElementFactory.make('omxh264dec', None)
         bin.add(dec)
 
         src.link_filtered(dec, Gst.caps_from_string('video/x-h264, framerate=(fraction)30/1, width=(int)%d, height=(int)%d' % (w,h)))
         return dec
 
 
-    def _two_bins(self):
+    def _two_bins(self, sinkname='nvhdmioverlaysink'):
         self.add_pipeline('main')
         pl = self.pipelines['main']
         
@@ -66,7 +129,7 @@ class Player(object):
 
         b2 = Gst.Bin.new('out')
         pl.add(b2)
-        out = Gst.ElementFactory.make('nvhdmioverlaysink', 'output')
+        out = Gst.ElementFactory.make(sinkname, 'output')
         out.set_property('sync', False)
         b2.add(out)
         gp2 = Gst.GhostPad.new('sink', out.get_static_pad('sink'))
@@ -75,7 +138,7 @@ class Player(object):
         b1.link(b2)
 
 
-    def _two_pipelines(self):
+    def _two_pipelines(self, sinkname='nvhdmioverlaysink'):
         self.add_pipeline('cam1')
         pl = self.pipelines['cam1']
         dec = self._add_logitech(pl)
@@ -84,7 +147,7 @@ class Player(object):
 
         self.add_pipeline('hdmiout')
         pl2 = self.pipelines['hdmiout']
-        out = Gst.ElementFactory.make('nvhdmioverlaysink', 'output')
+        out = Gst.ElementFactory.make(sinkname, 'output')
         out.set_property('sync', False)
         pl2.add(out)
         gp2 = Gst.GhostPad.new('sink', out.get_static_pad('sink'))
