@@ -26,8 +26,8 @@ class Player(object):
         self.mainloop = GObject.MainLoop()
         #self._two_pipelines()
         #self._two_bins()
-        #self._overlaid()
-        self._overlaid('nveglglessink')
+        self._overlaid()
+        #self._overlaid('nveglglessink')
 
     def _overlaid(self, sinkname='nvhdmioverlaysink'):
         self.add_pipeline('main')
@@ -40,7 +40,7 @@ class Player(object):
             gp1 = Gst.GhostPad.new('src', dec1.get_static_pad('src'))
             b1.add_pad(gp1)
             return b1
-        #b1 = make_b1()
+        b1 = make_b1()
 
         def make_b1_boxed():
             b1 = Gst.Bin.new('cam1')
@@ -57,22 +57,28 @@ class Player(object):
             gp1 = Gst.GhostPad.new('src', box_b1.get_static_pad('src'))
             b1.add_pad(gp1)
             return b1
-        b1 = make_b1_boxed()
+        #b1 = make_b1_boxed()
 
         def make_b2():
             b2 = Gst.Bin.new('cam2')
             pl.add(b2)
             dec2 = self._add_logitech(b2, 640, 480)
+            
+            conv = Gst.ElementFactory.make('nvvidconv', None)
+            b2.add(conv)
+            dec2.link(conv)
+            
             box_b2 = Gst.ElementFactory.make('videobox', 'box_b2')
             box_b2.set_property('top', -50)
             box_b2.set_property('left', -50)
             box_b2.set_property('border-alpha', 0)
             b2.add(box_b2)
-            dec2.link(box_b2)
+            conv.link_filtered(box_b2, Gst.caps_from_string('video/x-raw, format=(string)I420'))
+
             gp2 = Gst.GhostPad.new('src', box_b2.get_static_pad('src'))
             b2.add_pad(gp2)
             return b2
-        #b2 = make_b2()
+        b2 = make_b2()
 
         mix = Gst.ElementFactory.make('videomixer', 'mix')
         pl.add(mix)
@@ -87,7 +93,7 @@ class Player(object):
         mix.link_filtered(out, Gst.caps_from_string('video/x-raw, width=(int)1920, height=(int)1080'))
 
         b1.link(mix)
-        #b2.link(mix)
+        b2.link(mix)
 
 
     def _add_capture(self, bin, w=1920, h=1080):
