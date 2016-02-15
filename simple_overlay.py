@@ -7,6 +7,7 @@ from gi.repository import GObject, Gst, Gtk
 import argparse
 import math
 from time import sleep
+from collections import OrderedDict
 
 # Needed for window.get_xid(), xvimagesink.set_window_handle(), respectively:
 from gi.repository import GdkX11, GstVideo
@@ -18,12 +19,14 @@ Gst.init(None)
 
 
 class Player(object):
-    pipelines = []
-    buses = []
+    pipelines = OrderedDict()
+    buses = OrderedDict()
 
     def __init__(self):
-        self.add_pipeline()
-        pl = self.pipelines[0]
+        self.mainloop = GObject.MainLoop()
+
+        self.add_pipeline('cam1')
+        pl = self.pipelines['cam1']
 
         src = Gst.ElementFactory.make('v4l2src', 'webcam')
         src.set_property('device', '/dev/video0')
@@ -32,8 +35,8 @@ class Player(object):
         dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
         pl.add(dec)
 
-        self.add_pipeline()
-        pl2 = self.pipelines[1]
+        self.add_pipeline('hdmiout')
+        pl2 = self.pipelines['hdmiout']
 
         out = Gst.ElementFactory.make('nvhdmioverlaysink', 'output')
         out.set_property('sync', False)
@@ -56,12 +59,12 @@ class Player(object):
         posixsignal.signal(posixsignal.SIGTERM, self.quit)
         posixsignal.signal(posixsignal.SIGQUIT, self.quit)
 
-    def add_pipeline(self):
-        pipeline = Gst.Pipeline()
-        self.pipelines.append(pipeline)
+    def add_pipeline(self, name):
+        pipeline = Gst.Pipeline(name)
+        self.pipelines[name] = pipeline
         # Create bus to get events from GStreamer pipeline
         bus = pipeline.get_bus()
-        self.buses.append(bus)
+        self.buses[name] = bus
         bus.add_signal_watch()
         bus.connect('message::error', self.on_error)
 
@@ -69,17 +72,22 @@ class Player(object):
         print('on_error():', msg.parse_error())
 
     def run(self):
-        for pl in self.pipelines:
-            pl.set_state(Gst.State.PLAYING)
-        Gtk.main()
+        for name in self.pipelines:
+            self.pipelines[name].set_state(Gst.State.PLAYING)
+        self.mainloop.run()
 
     def quit(self):
-        for pl in self.pipelines:
-            pl.set_state(Gst.State.NULL)
-        Gtk.main_quit()
+        for name in reversed(self.pipelines):
+            print("nulling %s" % name)
+            self.pipelines[name].set_state(Gst.State.NULL)
+        self.mainloop.quit()
+
 
 
 if __name__ == '__main__':
     p = Player()
     p.hook_signals()
-    p.run()
+    try:
+        p.run()
+    except KeyboardInterrupt:
+        p.quit()
