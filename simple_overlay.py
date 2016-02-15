@@ -26,8 +26,8 @@ class Player(object):
         self.mainloop = GObject.MainLoop()
         #self._two_pipelines()
         #self._two_bins()
-        self._overlaid()
-        #self._overlaid('nveglglessink')
+        #self._overlaid()
+        self._overlaid('nveglglessink')
 
     def _overlaid(self, sinkname='nvhdmioverlaysink'):
         self.add_pipeline('main')
