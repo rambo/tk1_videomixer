@@ -33,16 +33,15 @@ class Player(object):
         self.add_pipeline('main')
         pl = self.pipelines['main']
         
-        def make_b1():
+        def make_capture():
             b1 = Gst.Bin.new('cam1')
             pl.add(b1)
             dec1 = self._add_capture(b1)
             gp1 = Gst.GhostPad.new('src', dec1.get_static_pad('src'))
             b1.add_pad(gp1)
             return b1
-        b1 = make_b1()
 
-        def make_b1_boxed():
+        def make_capture_boxed():
             b1 = Gst.Bin.new('cam1')
             pl.add(b1)
             dec1 = self._add_capture(b1, 640, 480)
@@ -57,9 +56,8 @@ class Player(object):
             gp1 = Gst.GhostPad.new('src', box_b1.get_static_pad('src'))
             b1.add_pad(gp1)
             return b1
-        #b1 = make_b1_boxed()
 
-        def make_b2():
+        def make_logitech_boxed():
             b2 = Gst.Bin.new('cam2')
             pl.add(b2)
             dec2 = self._add_logitech(b2, 640, 480)
@@ -78,7 +76,31 @@ class Player(object):
             gp2 = Gst.GhostPad.new('src', box_b2.get_static_pad('src'))
             b2.add_pad(gp2)
             return b2
-        b2 = make_b2()
+
+        def make_logitech():
+            b2 = Gst.Bin.new('cam2')
+            pl.add(b2)
+            dec2 = self._add_logitech(b2)
+            
+            conv = Gst.ElementFactory.make('nvvidconv', None)
+            b2.add(conv)
+            dec2.link(conv)
+
+            cf = Gst.ElementFactory.make('capsfilter', None)
+            cf.set_property('caps', Gst.caps_from_string('video/x-raw, format=(string)I420'))
+            b2.add(cf)
+            conv.link(cf)
+
+            gp2 = Gst.GhostPad.new('src', cf.get_static_pad('src'))
+            b2.add_pad(gp2)
+            return b2
+
+
+        #b1 = make_capture()
+        #b2 = make_logitech_boxed()
+        b1 = make_logitech()
+        b2 = make_capture_boxed()
+
 
         mix = Gst.ElementFactory.make('videomixer', 'mix')
         pl.add(mix)
