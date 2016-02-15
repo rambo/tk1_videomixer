@@ -27,8 +27,19 @@ class Player(object):
         self._two_bins()
         #self._two_pipelines()
 
+    def _add_capture(self, bin, w=1920, h=1080):
+        src = Gst.ElementFactory.make('v4l2src', 'hdmicapture')
+        src.set_property('device', '/dev/video1')
+        bin.add(src)
 
-    def _add_logitech(self, bin):
+        cf = Gst.ElementFactory.make('capsfilter', None)
+        cf.set_property('caps', Gst.caps_from_string('video/x-raw, format=(string)I420, framerate=(fraction)30/1, width=(int)%d, height=(int)%d' % (w,h)))
+        bin.add(cf)
+
+        src.link(cf)
+        return cf
+
+    def _add_logitech(self, bin, w=1920, h=1080):
         src = Gst.ElementFactory.make('v4l2src', 'logitech')
         src.set_property('device', '/dev/video0')
         bin.add(src)
@@ -36,7 +47,7 @@ class Player(object):
         dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
         bin.add(dec)
 
-        src.link(dec)
+        src.link_filtered(dec, Gst.caps_from_string('video/x-h264, framerate=(fraction)30/1, width=(int)%d, height=(int)%d' % (w,h)))
         return dec
 
 
@@ -47,6 +58,9 @@ class Player(object):
         b1 = Gst.Bin.new('cam1')
         pl.add(b1)
         dec = self._add_logitech(b1)
+        #dec = self._add_logitech(b1, 640, 480)
+        #dec = self._add_capture(b1)
+        #dec = self._add_capture(b1, 640, 480)
         gp1 = Gst.GhostPad.new('src', dec.get_static_pad('src'))
         b1.add_pad(gp1)
 
