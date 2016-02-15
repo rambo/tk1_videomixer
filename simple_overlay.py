@@ -31,14 +31,23 @@ class Player(object):
         
         dec = Gst.ElementFactory.make('omxh264dec', 'decoder')
         pl.add(dec)
-        
+
+        self.add_pipeline()
+        pl2 = self.pipelines[1]
+
         out = Gst.ElementFactory.make('nvhdmioverlaysink', 'output')
         out.set_property('sync', False)
-        pl.add(out)
-
+        pl2.add(out)
+        ghost = Gst.GhostPad.new('sink', out.get_static_pad('sink'))
+        pl2.add_pad(ghost)
 
         src.link(dec)
-        dec.link(out)
+        #dec.link(out)
+
+        ghost2 = Gst.GhostPad.new('src', dec.get_static_pad('src'))
+        pl.add_pad(ghost2)
+
+        pl.link(pl2)
 
 
     def hook_signals(self):
